@@ -1,21 +1,9 @@
 import deepsecurity
-from deepsecurity.rest import ApiException
-from pprint import pprint
-import subprocess
-from subprocess import Popen, PIPE, STDOUT
-from cloud_one_workload_security_demo_utils import runcommand, getacstatus, sendheartbeat
+from libs.utils import run_command, getacstatus, send_heartbeat
 import time
 
-# This is the application control test
-# This test will check if Application Control is turned on
-# If it is not on, it will turn it on
-# The test will then attempt to download and run docker on the system
-# This should trigger an event
-# After the test, docker will be deleted/removed
-# If Application control was not on previously, it will be turned off again
-# The test will also perform a heartbeat to ensure the events get back to 
-# Cloud One Workload Security or Deep Security Manager
-def applicationcontroltest(host_id, policy_id, configuration, api_version, overrides, operating_system):
+
+def application_control_attack(host_id, policy_id, configuration, api_version, overrides, user_os, **kwargs):
     print("---Running The Application Control Test---")
     #Check if Application control is already enabled
     enabled = False
@@ -43,24 +31,17 @@ def applicationcontroltest(host_id, policy_id, configuration, api_version, overr
                 done = True
         
     #Run the tests
-    runtest(operating_system)
+    run_attack(user_os)
     
-    # If Application Control was not previously on, turn it off again to return the policy to it's original state
     if(enabled == False):
         enabledisableapplicationcontrol(policy_id, policies_api, application_control_policy_extension, api_version, "off")
         
     #Clean up after the tests and reset the system to it's original state
-    cleanup(policy_id, policies_api, application_control_policy_extension, api_version, enabled, operating_system)
-    
-    # Perform a heartbeat to get the events to Cloud One or Deep Security Manager
-    sendheartbeat(operating_system)
+    cleanup(policy_id, policies_api, application_control_policy_extension, api_version, enabled, user_os)
+    send_heartbeat(user_os)
     print("---Application Control Test Completed---")
-
-# This function will turn Application Control on or off
-# If state is "on" then it will turn Application Control on
-# If the state is "off" then it will turn Application Control off
+    
 def enabledisableapplicationcontrol(policy_id, policies_api, application_control_policy_extension, api_version, state):
-    # Set the Application Control state
     print("Setting the Application Control state to: " + state)
     application_control_policy_extension.state = state
     application_control_policy_extension.block_unrecognized = "true"
@@ -70,39 +51,36 @@ def enabledisableapplicationcontrol(policy_id, policies_api, application_control
     # Modify the policy on Deep Security Manager
     modified_policy = policies_api.modify_policy(policy_id, policy, api_version)
     #pprint(modified_policy)      
-
-# This test will run the tests
-# It attempts to download docker and then run it
-def runtest(operating_system):
-    if("ubuntu" in operating_system):
+        
+def run_attack(user_os):
+    if("ubuntu" in user_os):
         # Attempt to install docker
         cmd = "sudo apt install docker &" 
-        output = runcommand(cmd)
-    if("redhat" in operating_system):
+        output = run_command(cmd)
+    if("redhat" in user_os):
         # Attempt to install docker
         cmd = "sudo yum install docker -y &" 
-        output = runcommand(cmd)
+        output = run_command(cmd)
         cmd = "sudo docker --version" 
-        output = runcommand(cmd)
-    if("windows" in operating_system):
+        output = run_command(cmd)
+    if("windows" in user_os):
         cmd = "curl https://download.docker.com/win/stable/Docker%20Desktop%20Installer.exe -o dockerinstaller.exe" 
-        output = runcommand(cmd)
+        output = run_command(cmd)
         cmd = "dockerinstaller.exe" 
-        output = runcommand(cmd) 
-
-#This function will clean up the system by removing any remnants of Docker left by the test
-def cleanup(policy_id, policies_api, application_control_policy_extension, api_version, enabled, operating_system):
-    if("ubuntu" in operating_system):
+        output = run_command(cmd)
+    
+def cleanup(policy_id, policies_api, application_control_policy_extension, api_version, enabled, user_os):
+    if("ubuntu" in user_os):
         # Remove docker
         cmd = "sudo apt-get --purge remove docker -y &"
-        output = runcommand(cmd)
+        output = run_command(cmd)
         # Not sure why I have to do this twice
         cmd = "sudo apt-get --purge remove docker -y &"
-        output = runcommand(cmd)
-    if("redhat" in operating_system):   
+        output = run_command(cmd)
+    if("redhat" in user_os):
         # Remove docker
         cmd = "sudo yum remove docker -y &"
-        output = runcommand(cmd)
-    if("windows" in operating_system):
+        output = run_command(cmd)
+    if("windows" in user_os):
         cmd = "del dockerinstaller.exe" 
-        output = runcommand(cmd)
+        output = run_command(cmd)
